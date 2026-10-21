@@ -1,4 +1,5 @@
-"""Rutas estáticas del proyecto (único lugar donde se definen)."""
+"""Rutas estáticas del proyecto."""
+
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]

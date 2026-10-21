@@ -6,7 +6,7 @@ __pycache__/
 .ipynb_checkpoints/
 .streamlit/secrets.toml
 
-# Datos crudos: superan el límite de GitHub (100 MB); ver README
+# Datos crudos (superan el límite de tamaño de GitHub)
 data/data-raw/*
 !data/data-raw/.gitkeep
 
