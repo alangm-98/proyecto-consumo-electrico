@@ -1,0 +1,14 @@
+# Entornos y caché
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.streamlit/secrets.toml
+
+# Datos crudos: superan el límite de GitHub (100 MB); ver README
+data/data-raw/*
+!data/data-raw/.gitkeep
+
+# Sistema
+.DS_Store
