@@ -1,0 +1,40 @@
+{
+  "metodo": "z-score",
+  "ddof": 0,
+  "inicio_prueba": "2010-01-01T00:00:00",
+  "filas_entrenamiento": 1600236,
+  "parametros": {
+    "Global_active_power": {
+      "media": 1.1004479665792053,
+      "desv": 1.0902181867470395
+    },
+    "Global_reactive_power": {
+      "media": 0.1220819679056534,
+      "desv": 0.11201331510461836
+    },
+    "Voltage": {
+      "media": 240.6456000230102,
+      "desv": 3.3180882712489153
+    },
+    "Global_intensity": {
+      "media": 4.670829075035607,
+      "desv": 4.584441626385147
+    },
+    "Sub_metering_1": {
+      "media": 1.160441700729322,
+      "desv": 6.293225393811581
+    },
+    "Sub_metering_2": {
+      "media": 1.355027811204736,
+      "desv": 6.013876351530022
+    },
+    "Sub_metering_3": {
+      "media": 6.232826831915481,
+      "desv": 8.34684260839488
+    },
+    "no_submedido_wh": {
+      "media": 9.592682994423306,
+      "desv": 10.103752477622937
+    }
+  }
+}

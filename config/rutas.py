@@ -10,3 +10,5 @@ DATA_PROCESSED = DATA / "data-processed"
 
 ARCHIVO_RAW = DATA_RAW / "household_power_consumption.txt"
 ARCHIVO_LIMPIO = DATA_PROCESSED / "consumo_limpio.parquet"
+ARCHIVO_NORMALIZADO = DATA_PROCESSED / "consumo_normalizado.parquet"
+PARAMETROS_ZSCORE = DATA_PROCESSED / "parametros_zscore.json"
