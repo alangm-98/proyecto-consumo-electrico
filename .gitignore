@@ -10,5 +10,8 @@ __pycache__/
 data/data-raw/*
 !data/data-raw/.gitkeep
 
+# Datos procesados (se regeneran con el pipeline)
+data/data-processed/*.parquet
+
 # Sistema
 .DS_Store
