@@ -66,4 +66,5 @@ Desde la raíz del proyecto, con el entorno activado:
 python -m src.cleaning.inspeccion        # inspección del dato crudo
 python -m src.cleaning.preprocesamiento  # limpieza -> data/data-processed/consumo_limpio.parquet
 python -m src.features.normalizacion     # z-score (ajustado con 2006-2009) -> consumo_normalizado.parquet
+python -m src.features.correlacion       # Pearson y selección de variables -> reports/figures/pearson_heatmap.png
 ```
