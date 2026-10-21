@@ -15,3 +15,8 @@ PARAMETROS_ZSCORE = DATA_PROCESSED / "parametros_zscore.json"
 
 FIGURAS = RAIZ / "reports" / "figures"
 FIG_PEARSON = FIGURAS / "pearson_heatmap.png"
+FIG_SCREE = FIGURAS / "pca_scree.png"
+FIG_LOADINGS = FIGURAS / "pca_loadings.png"
+FIG_PROYECCION = FIGURAS / "pca_proyeccion_2d.png"
+
+PARAMETROS_PCA = DATA_PROCESSED / "parametros_pca.json"

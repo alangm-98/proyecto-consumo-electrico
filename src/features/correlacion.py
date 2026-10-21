@@ -153,7 +153,7 @@ def graficar_heatmap(matriz: pl.DataFrame, ruta=FIG_PEARSON) -> None:
     barra.set_label("r de Pearson", fontsize=9)
 
     ax.set_title(
-        "Solo la intensidad es redundante con la potencia activa (r = 0.999)",
+        "Matriz de correlación de Pearson",
         fontsize=12,
         loc="left",
         pad=14,
