@@ -106,6 +106,85 @@ def seccion_tendencia_y_usos(df: pl.DataFrame, agregacion: str) -> None:
         )
 
 
+def seccion_perfil(df: pl.DataFrame) -> None:
+    st.subheader("Perfil diario de potencia :blue-badge[:material/schedule: Tiempo]")
+    st.caption(
+        "Potencia media por hora del día · cambia con los filtros de estación y tipo de día"
+    )
+    st.plotly_chart(
+        graficas.perfil_diario(metricas.perfil_diario(df)), config=CONFIG_GRAFICA
+    )
+
+
+def seccion_distribucion(df: pl.DataFrame) -> None:
+    diario = metricas.consumo_diario(df)
+    izquierda, derecha = st.columns([2, 1], gap="large")
+    with izquierda:
+        st.subheader(
+            "Distribución del consumo diario :violet-badge[:material/bar_chart: Distribución]"
+        )
+        st.caption(
+            "Número de días por rango de 4 kWh · solo días completos · "
+            f"{cuadro(MOCHA['text'])} media · {cuadro(MOCHA['peach'])} mediana (punteada)"
+        )
+        st.plotly_chart(graficas.histograma_diario(diario), config=CONFIG_GRAFICA)
+    with derecha:
+        st.subheader(
+            "Resumen estadístico :violet-badge[:material/bar_chart: Distribución]"
+        )
+        st.caption("Consumo diario (kWh)")
+        st.dataframe(
+            metricas.resumen_estadistico(diario),
+            hide_index=True,
+            column_config={"Valor": st.column_config.TextColumn(alignment="right")},
+        )
+
+
+FORMATO_PERIODO = {
+    "Hora": "YYYY-MM-DD HH:00",
+    "Día": "YYYY-MM-DD",
+    "Semana": "[Sem.] YYYY-MM-DD",
+    "Mes": "YYYY-MM",
+}
+
+
+def seccion_detalle(df: pl.DataFrame, agregacion: str) -> None:
+    st.subheader("Detalle por periodo :gray-badge[:material/table: Tabla]")
+    st.caption(
+        f"Una fila por {agregacion.lower()} · ordenable por columna · "
+        "descarga en CSV desde el menú de la tabla"
+    )
+    tabla = metricas.detalle_por_periodo(df, filtros.AGREGACIONES[agregacion])
+    columnas = {
+        "Periodo": st.column_config.DatetimeColumn(
+            format=FORMATO_PERIODO[agregacion], pinned=True
+        ),
+        "Cobertura (%)": st.column_config.ProgressColumn(
+            "Cobertura",
+            help="Porcentaje de minutos con medición",
+            format="%.1f %%",
+            min_value=0,
+            max_value=100,
+            color="green",
+            width="small",
+        ),
+    }
+    # Etiqueta corta en pantalla; la unidad va en el tooltip y en el nombre del CSV
+    for nombre, etiqueta, decimales in [
+        ("Energía (kWh)", "Energía", 1),
+        ("Potencia media (kW)", "Pot. media", 2),
+        ("Pico (kW)", "Pico", 2),
+        ("Cocina (kWh)", "Cocina", 1),
+        ("Lavandería (kWh)", "Lavandería", 1),
+        ("Calentador/AC (kWh)", "Calent./AC", 1),
+        ("No submedido (kWh)", "No submedido", 1),
+    ]:
+        columnas[nombre] = st.column_config.NumberColumn(
+            etiqueta, help=nombre, format=f"%.{decimales}f", width="small"
+        )
+    st.dataframe(tabla, hide_index=True, height=420, column_config=columnas)
+
+
 horario = cargar_horario()
 seleccion = filtros.barra_lateral(horario)
 filtrado = filtros.aplicar(horario, seleccion)
@@ -127,6 +206,9 @@ with consumo:
     else:
         seccion_kpis(filtrado)
         seccion_tendencia_y_usos(filtrado, seleccion.agregacion)
+        seccion_perfil(filtrado)
+        seccion_distribucion(filtrado)
+        seccion_detalle(filtrado, seleccion.agregacion)
 
 with preparacion:
     st.caption("Calidad de los datos, correlación de Pearson y PCA.")

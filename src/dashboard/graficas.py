@@ -135,3 +135,64 @@ def energia_por_uso(df: pl.DataFrame) -> go.Figure:
     fig.update_xaxes(visible=False, range=[0, max(pct) * 1.4])
     fig.update_yaxes(title_text=None)
     return _base(fig, 300)
+
+
+def perfil_diario(perfil: pl.DataFrame) -> go.Figure:
+    """Potencia media por hora del día: laborable (Blue) y fin de semana (Peach)."""
+    fig = go.Figure()
+    for fin_semana, nombre, color in [
+        (False, "Laborable", MOCHA["blue"]),
+        (True, "Fin de semana", MOCHA["peach"]),
+    ]:
+        serie = perfil.filter(pl.col("es_fin_semana") == fin_semana)
+        if serie.is_empty():
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=serie["hora"],
+                y=serie["potencia_kw"],
+                name=nombre,
+                mode="lines+markers",
+                line={"color": color, "width": 2},
+                marker={"size": 6},
+                hovertemplate=f"{nombre} · %{{x}}:00 h<br><b>%{{y:.2f}} kW</b><extra></extra>",
+            )
+        )
+    fig.update_xaxes(
+        title_text="Hora del día",
+        tickmode="array",
+        tickvals=list(range(0, 24, 3)),
+        ticktext=[f"{h} h" for h in range(0, 24, 3)],
+        range=[-0.5, 23.5],
+    )
+    fig.update_yaxes(title_text="kW promedio", rangemode="tozero")
+    _base(fig, 320)
+    return fig.update_layout(
+        showlegend=True,
+        legend={"orientation": "h", "x": 1, "xanchor": "right", "y": 1.08},
+    )
+
+
+def histograma_diario(diario: pl.DataFrame) -> go.Figure:
+    """Distribución del consumo diario (kWh) con media y mediana marcadas."""
+    energia = diario["energia_kwh"]
+    fig = go.Figure(
+        go.Histogram(
+            x=energia,
+            xbins={"start": 0, "size": 4},
+            marker={
+                "color": MOCHA["mauve"],
+                "line": {"color": MOCHA["base"], "width": 1},
+            },
+            hovertemplate="%{x} kWh<br><b>%{y} días</b><extra></extra>",
+        )
+    )
+    for valor, color, guion in [
+        (energia.mean(), MOCHA["text"], "solid"),
+        (energia.median(), MOCHA["peach"], "dash"),
+    ]:
+        if valor is not None:
+            fig.add_vline(x=valor, line={"color": color, "width": 2, "dash": guion})
+    fig.update_xaxes(title_text="kWh por día")
+    fig.update_yaxes(title_text="Días")
+    return _base(fig, 320).update_layout(bargap=0.04)
