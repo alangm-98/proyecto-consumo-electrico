@@ -19,6 +19,7 @@ import polars as pl
 from matplotlib.colors import LinearSegmentedColormap
 
 from config.rutas import ARCHIVO_NORMALIZADO, FIG_PEARSON
+from src.dashboard.tema import MOCHA
 from src.features.normalizacion import SUFIJO, VARIABLES
 
 UMBRAL = 0.8
@@ -40,10 +41,31 @@ ETIQUETAS = {
     "no_submedido_wh": "No submedido",
 }
 
-# Divergente azul (negativo) - gris neutro (0) - rojo (positivo)
+# Colores de las figuras (Catppuccin Mocha, igual que el dashboard)
+FONDO = MOCHA["base"]
+TINTA = MOCHA["text"]
+TINTA_SECUNDARIA = MOCHA["subtext0"]
+LINEA = MOCHA["surface1"]
+
+# Divergente Blue (negativo) - Surface 0 (0) - Red (positivo)
 MAPA_COLOR = LinearSegmentedColormap.from_list(
-    "azul_gris_rojo", ["#2a78d6", "#f0efec", "#e34948"]
+    "azul_rojo_mocha", [MOCHA["blue"], MOCHA["surface0"], MOCHA["red"]]
 )
+
+
+def color_texto(rgba) -> str:
+    """Color de texto legible sobre una celda: Base en celdas claras, Text en oscuras."""
+    luminancia = 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
+    return FONDO if luminancia > 0.5 else TINTA
+
+
+def barra_color(fig, imagen, ax, etiqueta: str, **opciones):
+    """Barra de color sin borde, con marcas y etiqueta en Subtext 0."""
+    barra = fig.colorbar(imagen, ax=ax, **opciones)
+    barra.outline.set_visible(False)
+    barra.ax.tick_params(colors=TINTA_SECUNDARIA, labelsize=9)
+    barra.set_label(etiqueta, fontsize=9, color=TINTA_SECUNDARIA)
+    return barra
 
 
 def cargar_entrenamiento() -> pl.DataFrame:
@@ -117,57 +139,60 @@ def graficar_heatmap(matriz: pl.DataFrame, ruta=FIG_PEARSON) -> None:
     etiquetas = [ETIQUETAS[v] for v in variables]
     n = len(variables)
 
-    fig, ax = plt.subplots(figsize=(9, 7.5), dpi=150)
-    # Diagonal (r = 1 por definición) en gris para no competir con los pares
+    fig, ax = plt.subplots(figsize=(9, 7.5), dpi=150, facecolor=FONDO)
+    # Diagonal (r = 1 por definición) en Mantle para no competir con los pares
     sin_diagonal = valores.copy()
     np.fill_diagonal(sin_diagonal, np.nan)
-    mapa = MAPA_COLOR.with_extremes(bad="#e6e5e1")
+    mapa = MAPA_COLOR.with_extremes(bad=MOCHA["mantle"])
     imagen = ax.imshow(sin_diagonal, cmap=mapa, vmin=-1, vmax=1)
 
     for i in range(n):
         for j in range(n):
+            if i == j:
+                continue
             r = valores[i, j]
-            redundante = i != j and abs(r) > UMBRAL
+            redundante = abs(r) > UMBRAL
             ax.text(
                 j,
                 i,
-                "" if i == j else f"{r:.3f}" if redundante else f"{r:.2f}",
+                f"{r:.3f}" if redundante else f"{r:.2f}",
                 ha="center",
                 va="center",
                 fontsize=9,
-                color="white" if abs(r) > 0.85 else "#2b2b29",
+                color=color_texto(MAPA_COLOR((r + 1) / 2)),
                 fontweight="bold" if redundante else "normal",
             )
 
-    ax.set_xticks(range(n), etiquetas, rotation=40, ha="right", fontsize=9)
-    ax.set_yticks(range(n), etiquetas, fontsize=9)
+    ax.set_xticks(range(n), etiquetas, rotation=40, ha="right", fontsize=9, color=TINTA)
+    ax.set_yticks(range(n), etiquetas, fontsize=9, color=TINTA)
     ax.set_xticks(np.arange(-0.5, n), minor=True)
     ax.set_yticks(np.arange(-0.5, n), minor=True)
-    ax.grid(which="minor", color="white", linewidth=2)
+    ax.grid(which="minor", color=FONDO, linewidth=2)
     ax.tick_params(which="both", length=0)
     for borde in ax.spines.values():
         borde.set_visible(False)
 
-    barra = fig.colorbar(imagen, ax=ax, shrink=0.8, ticks=[-1, -0.5, 0, 0.5, 1])
-    barra.outline.set_visible(False)
-    barra.set_label("r de Pearson", fontsize=9)
+    barra_color(
+        fig, imagen, ax, "r de Pearson", shrink=0.8, ticks=[-1, -0.5, 0, 0.5, 1]
+    )
 
     ax.set_title(
         "Matriz de correlación de Pearson",
         fontsize=12,
         loc="left",
         pad=14,
+        color=TINTA,
     )
     fig.text(
         0.01,
         0.01,
         f"Pearson sobre datos de entrenamiento (2006-2009). Umbral de redundancia: |r| > {UMBRAL}.",
         fontsize=8,
-        color="#6b6b68",
+        color=TINTA_SECUNDARIA,
     )
     fig.tight_layout()
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(ruta, facecolor="white")
+    fig.savefig(ruta, facecolor=FONDO)
     plt.close(fig)
 
 

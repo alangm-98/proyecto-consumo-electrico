@@ -20,7 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.colors import LinearSegmentedColormap, LogNorm
+from matplotlib.colors import LinearSegmentedColormap, LogNorm, to_rgba
 from sklearn.decomposition import PCA
 
 from config.rutas import (
@@ -30,18 +30,29 @@ from config.rutas import (
     FIG_SCREE,
     PARAMETROS_PCA,
 )
-from src.features.correlacion import ETIQUETAS, MAPA_COLOR, VARIABLES_MODELO
+from src.dashboard.tema import MOCHA
+from src.features.correlacion import (
+    ETIQUETAS,
+    FONDO,
+    LINEA,
+    MAPA_COLOR,
+    TINTA,
+    TINTA_SECUNDARIA,
+    VARIABLES_MODELO,
+    barra_color,
+    color_texto,
+)
 from src.features.normalizacion import SUFIJO
 
 UMBRAL_VARIANZA = 0.80
 COLUMNAS_Z = [f"{v}{SUFIJO}" for v in VARIABLES_MODELO]
 
-TINTA = "#2b2b29"
-TINTA_SECUNDARIA = "#6b6b68"
-AZUL = "#2a78d6"
-GRIS = "#c9c8c3"
+CONSERVADO = MOCHA["blue"]
+DESCARTADO = MOCHA["overlay0"]
+UMBRAL_COLOR = MOCHA["peach"]
+# Secuencial de Surface 0 (pocos minutos) a Lavender (muchos)
 MAPA_DENSIDAD = LinearSegmentedColormap.from_list(
-    "azul_secuencial", ["#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"]
+    "densidad_mocha", [MOCHA["surface0"], MOCHA["blue"], MOCHA["lavender"]]
 )
 
 
@@ -152,8 +163,9 @@ def _estilo(ax) -> None:
     for lado in ["top", "right"]:
         ax.spines[lado].set_visible(False)
     for lado in ["left", "bottom"]:
-        ax.spines[lado].set_color(GRIS)
+        ax.spines[lado].set_color(LINEA)
     ax.tick_params(colors=TINTA_SECUNDARIA, labelsize=9)
+    ax.set_facecolor(FONDO)
 
 
 def graficar_scree(modelo: PCA, k: int, ruta=FIG_SCREE) -> None:
@@ -162,15 +174,13 @@ def graficar_scree(modelo: PCA, k: int, ruta=FIG_SCREE) -> None:
     acumulado = np.cumsum(pct)
     x = np.arange(1, len(pct) + 1)
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-    colores = [AZUL if i <= k else GRIS for i in x]
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=150, facecolor=FONDO)
+    colores = [CONSERVADO if i <= k else DESCARTADO for i in x]
     ax.bar(x, pct, color=colores, width=0.6, zorder=2)
     ax.plot(x, acumulado, color=TINTA, linewidth=2, marker="o", markersize=6, zorder=3)
-    ax.axhline(
-        100 * UMBRAL_VARIANZA, color=TINTA_SECUNDARIA, linewidth=1, linestyle="--"
-    )
+    ax.axhline(100 * UMBRAL_VARIANZA, color=UMBRAL_COLOR, linewidth=1.2, linestyle="--")
 
-    for xi, p in zip(x, pct):
+    for xi, p, color in zip(x, pct, colores):
         dentro = p > 8
         ax.text(
             xi,
@@ -179,7 +189,7 @@ def graficar_scree(modelo: PCA, k: int, ruta=FIG_SCREE) -> None:
             ha="center",
             va="top" if dentro else "bottom",
             fontsize=9,
-            color="white" if dentro and xi <= k else TINTA,
+            color=color_texto(to_rgba(color)) if dentro else TINTA,
         )
     ax.annotate(
         f"{acumulado[k - 1]:.1f}% acumulado",
@@ -194,13 +204,13 @@ def graficar_scree(modelo: PCA, k: int, ruta=FIG_SCREE) -> None:
         100 * UMBRAL_VARIANZA + 1.5,
         f"Umbral {100 * UMBRAL_VARIANZA:.0f}%",
         fontsize=9,
-        color=TINTA_SECUNDARIA,
+        color=UMBRAL_COLOR,
     )
 
     ax.set_xticks(x, nombres_pc(len(pct)))
     ax.set_ylim(0, 105)
     ax.set_ylabel("% de varianza explicada", fontsize=9, color=TINTA_SECUNDARIA)
-    ax.grid(axis="y", color="#ecebe7", linewidth=0.8, zorder=0)
+    ax.grid(axis="y", color=MOCHA["surface0"], linewidth=0.8, zorder=0)
     _estilo(ax)
     ax.set_title(
         "Varianza explicada por componente principal",
@@ -217,7 +227,7 @@ def graficar_scree(modelo: PCA, k: int, ruta=FIG_SCREE) -> None:
         color=TINTA_SECUNDARIA,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
-    fig.savefig(ruta, facecolor="white")
+    fig.savefig(ruta, facecolor=FONDO)
     plt.close(fig)
 
 
@@ -228,7 +238,7 @@ def graficar_loadings(modelo: PCA, k: int, ruta=FIG_LOADINGS) -> None:
     pcs = nombres_pc(k)
     pct = 100 * modelo.explained_variance_ratio_[:k]
 
-    fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150)
+    fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150, facecolor=FONDO)
     imagen = ax.imshow(valores, cmap=MAPA_COLOR, vmin=-1, vmax=1, aspect="auto")
     for i in range(valores.shape[0]):
         for j in range(k):
@@ -240,20 +250,23 @@ def graficar_loadings(modelo: PCA, k: int, ruta=FIG_LOADINGS) -> None:
                 ha="center",
                 va="center",
                 fontsize=9,
-                color="white" if abs(w) > 0.55 else TINTA,
+                color=color_texto(MAPA_COLOR((w + 1) / 2)),
                 fontweight="bold" if abs(w) >= 0.4 else "normal",
             )
-    ax.set_xticks(range(k), [f"{pc}\n{p:.1f}%" for pc, p in zip(pcs, pct)], fontsize=9)
-    ax.set_yticks(range(len(filas)), filas, fontsize=9)
+    ax.set_xticks(
+        range(k),
+        [f"{pc}\n{p:.1f}%" for pc, p in zip(pcs, pct)],
+        fontsize=9,
+        color=TINTA,
+    )
+    ax.set_yticks(range(len(filas)), filas, fontsize=9, color=TINTA)
     ax.set_xticks(np.arange(-0.5, k), minor=True)
     ax.set_yticks(np.arange(-0.5, len(filas)), minor=True)
-    ax.grid(which="minor", color="white", linewidth=2)
+    ax.grid(which="minor", color=FONDO, linewidth=2)
     ax.tick_params(which="both", length=0)
     for borde in ax.spines.values():
         borde.set_visible(False)
-    barra = fig.colorbar(imagen, ax=ax, shrink=0.8, ticks=[-1, -0.5, 0, 0.5, 1])
-    barra.outline.set_visible(False)
-    barra.set_label("Loading", fontsize=9)
+    barra_color(fig, imagen, ax, "Loading", shrink=0.8, ticks=[-1, -0.5, 0, 0.5, 1])
     ax.set_title(
         "Loadings de los componentes conservados",
         fontsize=11,
@@ -269,7 +282,7 @@ def graficar_loadings(modelo: PCA, k: int, ruta=FIG_LOADINGS) -> None:
         color=TINTA_SECUNDARIA,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
-    fig.savefig(ruta, facecolor="white")
+    fig.savefig(ruta, facecolor=FONDO)
     plt.close(fig)
 
 
@@ -288,7 +301,9 @@ def graficar_proyeccion(df: pl.DataFrame, modelo: PCA, ruta=FIG_PROYECCION) -> N
         "noche": "Noche (18-24 h)",
     }
 
-    fig, ejes = plt.subplots(2, 2, figsize=(10, 7.5), dpi=150, sharex=True, sharey=True)
+    fig, ejes = plt.subplots(
+        2, 2, figsize=(10, 7.5), dpi=150, sharex=True, sharey=True, facecolor=FONDO
+    )
     for ax, franja in zip(ejes.flat, franjas):
         sub = puntos.filter(pl.col("franja_horaria") == franja)
         densidad = ax.hexbin(
@@ -303,10 +318,10 @@ def graficar_proyeccion(df: pl.DataFrame, modelo: PCA, ruta=FIG_PROYECCION) -> N
         )
         c1, c2 = sub["PC1"].mean(), sub["PC2"].mean()
         ax.scatter(
-            c1, c2, s=60, color="#eb6834", edgecolor="white", linewidth=2, zorder=3
+            c1, c2, s=60, color=MOCHA["peach"], edgecolor=FONDO, linewidth=2, zorder=3
         )
-        ax.axvline(0, color=GRIS, linewidth=0.8, zorder=0)
-        ax.axhline(0, color=GRIS, linewidth=0.8, zorder=0)
+        ax.axvline(0, color=LINEA, linewidth=0.8, zorder=0)
+        ax.axhline(0, color=LINEA, linewidth=0.8, zorder=0)
         ax.set_title(
             f"{titulos[franja]} · PC1 medio {c1:+.2f}",
             fontsize=10,
@@ -325,9 +340,7 @@ def graficar_proyeccion(df: pl.DataFrame, modelo: PCA, ruta=FIG_PROYECCION) -> N
             f"PC2 · tipo de carga ({pct[1]:.1f}%)", fontsize=9, color=TINTA_SECUNDARIA
         )
 
-    barra = fig.colorbar(densidad, ax=ejes, shrink=0.7)
-    barra.outline.set_visible(False)
-    barra.set_label("Minutos por celda (escala log)", fontsize=9)
+    barra_color(fig, densidad, ejes, "Minutos por celda (escala log)", shrink=0.7)
     fig.suptitle(
         "Proyección en PC1 y PC2 por franja horaria",
         fontsize=12,
@@ -342,7 +355,7 @@ def graficar_proyeccion(df: pl.DataFrame, modelo: PCA, ruta=FIG_PROYECCION) -> N
         fontsize=8,
         color=TINTA_SECUNDARIA,
     )
-    fig.savefig(ruta, facecolor="white", bbox_inches="tight")
+    fig.savefig(ruta, facecolor=FONDO, bbox_inches="tight")
     plt.close(fig)
 
 
