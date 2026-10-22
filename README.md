@@ -71,3 +71,9 @@ python -m src.features.pca               # PCA (4 componentes) -> parametros_pca
 python -m src.features.dataset_final     # dataset preparado -> data/data-processed/dataset_final.parquet
 python -m src.dashboard.datos            # datos del dashboard -> consumo_horario.parquet y pearson_entrenamiento.json
 ```
+
+Dashboard:
+
+```bash
+streamlit run visualization/app.py
+```

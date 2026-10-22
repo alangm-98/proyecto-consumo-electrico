@@ -11,15 +11,15 @@ showSidebarBorder = false
 metricValueFontSize = "2.25rem"
 metricValueFontWeight = 600
 
-primaryColor = "#cba6f7"              # Mauve
-backgroundColor = "#1e1e2e"           # Base
-secondaryBackgroundColor = "#313244"  # Surface 0
-textColor = "#cdd6f4"                 # Text
-borderColor = "#45475a"               # Surface 1
-dataframeBorderColor = "#313244"      # Surface 0
-dataframeHeaderBackgroundColor = "#181825"  # Mantle
-linkColor = "#89b4fa"                 # Blue
-codeBackgroundColor = "#181825"       # Mantle
+primaryColor = "#cba6f7"                   # Mauve
+backgroundColor = "#1e1e2e"                # Base
+secondaryBackgroundColor = "#313244"       # Surface 0
+textColor = "#cdd6f4"                      # Text
+borderColor = "#45475a"                    # Surface 1
+dataframeBorderColor = "#313244"           # Surface 0
+dataframeHeaderBackgroundColor = "#181825" # Mantle
+linkColor = "#89b4fa"                      # Blue
+codeBackgroundColor = "#181825"            # Mantle
 
 # Colores con nombre (st.badge, :color[texto]) mapeados a la paleta
 redColor = "#f38ba8"
@@ -45,10 +45,47 @@ violetTextColor = "#cba6f7"
 grayTextColor = "#9399b2"
 
 # Paletas por defecto de las gráficas
-chartCategoricalColors = ["#89b4fa", "#fab387", "#a6e3a1", "#cba6f7", "#94e2d5", "#f9e2af", "#f38ba8", "#b4befe"]
-chartSequentialColors = ["#313244", "#454f6c", "#586c95", "#6c89bd", "#7fa6e6", "#8eb5fa", "#97b7fb", "#a1bafc", "#aabcfd", "#b4befe"]
-chartDivergingColors = ["#89b4fa", "#7394cc", "#5d739f", "#475272", "#313244", "#62485d", "#925e76", "#c2758f", "#f38ba8"]
+chartCategoricalColors = [
+  "#89b4fa",
+  "#fab387",
+  "#a6e3a1",
+  "#cba6f7",
+  "#94e2d5",
+  "#f9e2af",
+  "#f38ba8",
+  "#b4befe",
+]
+chartSequentialColors = [
+  "#313244",
+  "#454f6c",
+  "#586c95",
+  "#6c89bd",
+  "#7fa6e6",
+  "#8eb5fa",
+  "#97b7fb",
+  "#a1bafc",
+  "#aabcfd",
+  "#b4befe",
+]
+chartDivergingColors = [
+  "#89b4fa",
+  "#7597d2",
+  "#627aa9",
+  "#4e5d81",
+  "#3b4058",
+  "#473c4f",
+  "#725065",
+  "#9d637c",
+  "#c87792",
+  "#f38ba8",
+]
 
 [theme.sidebar]
-backgroundColor = "#181825"           # Mantle
-secondaryBackgroundColor = "#313244"  # Surface 0
+backgroundColor = "#181825"          # Mantle
+secondaryBackgroundColor = "#313244" # Surface 0
+
+[client]
+toolbarMode = "minimal" # oculta las opciones de desarrollo (Deploy, etc.)
+
+[browser]
+gatherUsageStats = false
