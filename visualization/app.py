@@ -10,8 +10,8 @@ import polars as pl
 import streamlit as st
 
 from config.rutas import ARCHIVO_HORARIO
-from src.dashboard import filtros, metricas
-from src.dashboard.tema import ICONO
+from src.dashboard import filtros, graficas, metricas
+from src.dashboard.tema import ICONO, MOCHA
 
 st.set_page_config(
     page_title="Consumo eléctrico · Práctica 5",
@@ -25,8 +25,16 @@ def cargar_horario() -> pl.DataFrame:
     return pl.read_parquet(ARCHIVO_HORARIO)
 
 
+CONFIG_GRAFICA = {"displaylogo": False}
+
+
 def numero(valor: float | None, decimales: int = 1, sufijo: str = "") -> str:
     return "—" if valor is None else f"{valor:,.{decimales}f}{sufijo}"
+
+
+def cuadro(color: str) -> str:
+    """Cuadro de color en texto Markdown (para leyendas en subtítulos)."""
+    return f':color[■]{{foreground="{color}"}}'
 
 
 def seccion_kpis(df: pl.DataFrame) -> None:
@@ -75,6 +83,29 @@ def seccion_kpis(df: pl.DataFrame) -> None:
     )
 
 
+def seccion_tendencia_y_usos(df: pl.DataFrame, agregacion: str) -> None:
+    izquierda, derecha = st.columns([2, 1], gap="large")
+    with izquierda:
+        titulo = (
+            "Consumo por hora" if agregacion == "Hora" else "Consumo promedio por día"
+        )
+        st.subheader(f"{titulo} :blue-badge[:material/schedule: Tiempo]")
+        st.caption(
+            f"Agrupado por {agregacion.lower()} · sombreado: "
+            f"{cuadro(MOCHA['sapphire'])} invierno · {cuadro(MOCHA['peach'])} verano"
+        )
+        st.plotly_chart(graficas.tendencia(df, agregacion), config=CONFIG_GRAFICA)
+    with derecha:
+        st.subheader(
+            "Energía por uso :orange-badge[:material/donut_small: Composición]"
+        )
+        st.caption("Porcentaje del total del periodo filtrado")
+        st.plotly_chart(graficas.energia_por_uso(df), config=CONFIG_GRAFICA)
+        st.caption(
+            "No submedido: iluminación, electrónica y otros aparatos sin medidor propio."
+        )
+
+
 horario = cargar_horario()
 seleccion = filtros.barra_lateral(horario)
 filtrado = filtros.aplicar(horario, seleccion)
@@ -95,6 +126,7 @@ with consumo:
         )
     else:
         seccion_kpis(filtrado)
+        seccion_tendencia_y_usos(filtrado, seleccion.agregacion)
 
 with preparacion:
     st.caption("Calidad de los datos, correlación de Pearson y PCA.")
