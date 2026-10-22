@@ -12,6 +12,7 @@ data/data-raw/*
 
 # Datos procesados (se regeneran con el pipeline)
 data/data-processed/*.parquet
+!data/data-processed/consumo_horario.parquet
 
 # Sistema
 .DS_Store
