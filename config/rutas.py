@@ -15,6 +15,7 @@ PARAMETROS_ZSCORE = DATA_PROCESSED / "parametros_zscore.json"
 ARCHIVO_FINAL = DATA_PROCESSED / "dataset_final.parquet"
 ARCHIVO_HORARIO = DATA_PROCESSED / "consumo_horario.parquet"
 ARCHIVO_PEARSON = DATA_PROCESSED / "pearson_entrenamiento.json"
+ARCHIVO_CALIDAD = DATA_PROCESSED / "calidad_datos.json"
 
 FIGURAS = RAIZ / "reports" / "figures"
 FIG_PEARSON = FIGURAS / "pearson_heatmap.png"

@@ -3,15 +3,22 @@
 - Resumen por hora del dataset limpio, en unidades reales: energía, potencias,
   voltaje, intensidad, submedidores, minutos medidos y calendario.
 - Matriz de correlación de Pearson del periodo de entrenamiento (Paso 4).
+- Calidad del dataset limpio: conteo por origen de los datos y huecos sin rellenar.
 
-Guarda ambos archivos en data/data-processed/ e imprime un resumen.
+Guarda los tres archivos en data/data-processed/ e imprime un resumen.
 """
 
 import json
 
 import polars as pl
 
-from config.rutas import ARCHIVO_HORARIO, ARCHIVO_LIMPIO, ARCHIVO_PEARSON
+from config.rutas import (
+    ARCHIVO_CALIDAD,
+    ARCHIVO_HORARIO,
+    ARCHIVO_LIMPIO,
+    ARCHIVO_PEARSON,
+)
+from src.cleaning.preprocesamiento import MAX_MINUTOS_INTERPOLAR
 from src.features.correlacion import (
     cargar_entrenamiento,
     matriz_correlacion,
@@ -86,6 +93,39 @@ def pearson_entrenamiento() -> dict:
     }
 
 
+def calidad_datos(df: pl.DataFrame) -> dict:
+    """Minutos por origen (original, interpolado, faltante) y huecos sin rellenar."""
+    conteo = dict(df["estado_dato"].value_counts().iter_rows())
+    bloque = (pl.col("estado_dato") != pl.col("estado_dato").shift()).fill_null(True)
+    huecos = (
+        df.with_columns(bloque.cum_sum().alias("bloque"))
+        .filter(pl.col("estado_dato") == "faltante")
+        .group_by("bloque")
+        .agg(
+            pl.col("datetime").min().alias("inicio"),
+            pl.col("datetime").max().alias("fin"),
+            pl.len().alias("minutos"),
+        )
+        .sort("inicio")
+    )
+    return {
+        "registros": df.height,
+        "marcas_unicas": df["datetime"].n_unique(),
+        "originales": conteo.get("original", 0),
+        "interpolados": conteo.get("interpolado", 0),
+        "faltantes": conteo.get("faltante", 0),
+        "max_minutos_interpolados": MAX_MINUTOS_INTERPOLAR,
+        "huecos": [
+            {
+                "inicio": f"{inicio:%Y-%m-%d %H:%M}",
+                "fin": f"{fin:%Y-%m-%d %H:%M}",
+                "minutos": n,
+            }
+            for inicio, fin, n in huecos.select("inicio", "fin", "minutos").iter_rows()
+        ],
+    }
+
+
 def main() -> None:
     pl.Config.set_tbl_cols(-1)
     pl.Config.set_tbl_width_chars(200)
@@ -129,6 +169,15 @@ def main() -> None:
         f"\nGuardado: {ARCHIVO_HORARIO} ({ARCHIVO_HORARIO.stat().st_size / 1e6:.2f} MB)"
     )
     print(f"Guardado: {ARCHIVO_PEARSON}")
+
+    calidad = calidad_datos(limpio)
+    ARCHIVO_CALIDAD.write_text(json.dumps(calidad, indent=2), encoding="utf-8")
+    print(
+        f"\nRegistros {calidad['registros']:,} · originales {calidad['originales']:,} · "
+        f"interpolados {calidad['interpolados']:,} · faltantes {calidad['faltantes']:,} · "
+        f"huecos sin rellenar {len(calidad['huecos'])}"
+    )
+    print(f"Guardado: {ARCHIVO_CALIDAD}")
 
 
 if __name__ == "__main__":

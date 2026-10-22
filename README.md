@@ -69,7 +69,7 @@ python -m src.features.normalizacion     # z-score (ajustado con 2006-2009) -> c
 python -m src.features.correlacion       # Pearson y selección de variables -> reports/figures/pearson_heatmap.png
 python -m src.features.pca               # PCA (4 componentes) -> parametros_pca.json y figuras en reports/figures/
 python -m src.features.dataset_final     # dataset preparado -> data/data-processed/dataset_final.parquet
-python -m src.dashboard.datos            # datos del dashboard -> consumo_horario.parquet y pearson_entrenamiento.json
+python -m src.dashboard.datos            # datos del dashboard -> consumo_horario.parquet, pearson_entrenamiento.json y calidad_datos.json
 ```
 
 Dashboard:

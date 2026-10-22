@@ -124,3 +124,43 @@ def detalle_por_periodo(df: pl.DataFrame, cada: str) -> pl.DataFrame:
         .drop("_medidos")
         .rename({"datetime": "Periodo"})
     )
+
+
+def faltantes_por_mes(df: pl.DataFrame) -> pl.DataFrame:
+    """Minutos sin medición (ni original ni interpolada) por mes."""
+    sin_medicion = pl.col("minutos").cast(pl.Int64) - pl.col("minutos_medidos").cast(
+        pl.Int64
+    )
+    return (
+        df.group_by(pl.col("datetime").dt.truncate("1mo").alias("mes"))
+        .agg(sin_medicion.sum().alias("minutos_faltantes"))
+        .sort("mes")
+    )
+
+
+def tabla_huecos(huecos: list[dict]) -> pl.DataFrame:
+    """Huecos sin rellenar con inicio, fin y duración en horas."""
+    if not huecos:
+        return pl.DataFrame(
+            schema={
+                "Inicio": pl.Datetime,
+                "Fin": pl.Datetime,
+                "Duración (h)": pl.Float64,
+            }
+        )
+    return pl.DataFrame(huecos).select(
+        pl.col("inicio").str.to_datetime("%Y-%m-%d %H:%M").alias("Inicio"),
+        pl.col("fin").str.to_datetime("%Y-%m-%d %H:%M").alias("Fin"),
+        (pl.col("minutos") / 60).alias("Duración (h)"),
+    )
+
+
+def tabla_loadings(pca: dict, etiquetas: dict) -> pl.DataFrame:
+    """Loadings de los componentes conservados, una fila por variable."""
+    variables = [v.removesuffix("_z") for v in pca["variables"]]
+    datos = {"Variable": [etiquetas.get(v, v) for v in variables]}
+    for i, (pesos, varianza) in enumerate(
+        zip(pca["componentes"], pca["varianza_explicada"]), start=1
+    ):
+        datos[f"PC{i} ({100 * varianza:.1f} %)"] = pesos
+    return pl.DataFrame(datos)

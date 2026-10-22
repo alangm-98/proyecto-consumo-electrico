@@ -1,5 +1,6 @@
 """Dashboard de consumo eléctrico doméstico (Streamlit)."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,9 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import polars as pl
 import streamlit as st
 
-from config.rutas import ARCHIVO_HORARIO
+from config.rutas import (
+    ARCHIVO_CALIDAD,
+    ARCHIVO_HORARIO,
+    ARCHIVO_PEARSON,
+    FIG_LOADINGS,
+    FIG_PROYECCION,
+    FIG_SCREE,
+    PARAMETROS_PCA,
+)
 from src.dashboard import filtros, graficas, metricas
 from src.dashboard.tema import ICONO, MOCHA
+from src.features.correlacion import ETIQUETAS
 
 st.set_page_config(
     page_title="Consumo eléctrico · Práctica 5",
@@ -23,6 +33,11 @@ st.set_page_config(
 @st.cache_data
 def cargar_horario() -> pl.DataFrame:
     return pl.read_parquet(ARCHIVO_HORARIO)
+
+
+@st.cache_data
+def cargar_json(ruta: Path) -> dict:
+    return json.loads(ruta.read_text(encoding="utf-8"))
 
 
 CONFIG_GRAFICA = {"displaylogo": False}
@@ -185,6 +200,171 @@ def seccion_detalle(df: pl.DataFrame, agregacion: str) -> None:
     st.dataframe(tabla, hide_index=True, height=420, column_config=columnas)
 
 
+# ------------------------------------------------------------ preparación de datos
+def seccion_calidad(calidad: dict, pearson: dict, pca: dict) -> None:
+    c1, c2, c3, c4 = st.columns(4)
+    repetidas = calidad["registros"] - calidad["marcas_unicas"]
+    c1.metric(
+        ":blue[:material/database:] Registros",
+        f"{calidad['registros']:,}",
+        delta=f"{repetidas:,} minutos repetidos",
+        delta_color="off",
+        delta_arrow="off",
+        help="Una fila por minuto, del 16/12/2006 al 26/11/2010.",
+        border=True,
+        height="stretch",
+    )
+    c2.metric(
+        ":yellow[:material/auto_fix_high:] Minutos interpolados",
+        f"{calidad['interpolados']:,}",
+        delta=f"Huecos de hasta {calidad['max_minutos_interpolados']} min",
+        delta_color="yellow",
+        delta_arrow="off",
+        help="Interpolación lineal solo en huecos cortos.",
+        border=True,
+        height="stretch",
+    )
+    c3.metric(
+        ":red[:material/error:] Minutos faltantes",
+        f"{calidad['faltantes']:,}",
+        delta=f"{len(calidad['huecos'])} huecos largos, sin rellenar",
+        delta_color="red",
+        delta_arrow="off",
+        help="Quedan como nulos; no se usan para ajustar el z-score, Pearson ni el PCA.",
+        border=True,
+        height="stretch",
+    )
+    medidas = len(pearson["variables"])
+    modelo = len(pca["variables"])
+    c4.metric(
+        ":violet[:material/filter_list:] Variables para modelar",
+        f"{medidas} → {modelo} → {pca['n_componentes']}",
+        delta=f"Pearson descarta {medidas - modelo}",
+        delta_color="violet",
+        delta_arrow="off",
+        help=(
+            f"{medidas} medidas (incluido el consumo no submedido) → {modelo} tras "
+            f"Pearson → {pca['n_componentes']} componentes principales."
+        ),
+        border=True,
+        height="stretch",
+    )
+
+
+COLOR_PASO = ["blue", "blue", "blue", "yellow", "green", "orange", "violet"]
+
+
+def pasos_preparacion(calidad: dict, pca: dict) -> list[str]:
+    acumulada = 100 * sum(pca["varianza_explicada"][: pca["n_componentes"]])
+    return [
+        "Faltantes «?» y vacíos unificados como nulos",
+        "Fecha y hora en una sola columna; mediciones como números",
+        f"Deduplicación por minuto ({calidad['registros'] - calidad['marcas_unicas']} repetidas)",
+        f"Interpolación solo en huecos de hasta {calidad['max_minutos_interpolados']} min",
+        "Z-score ajustado con 2006–2009; 2010 como prueba",
+        "Pearson: fuera la intensidad y el consumo no submedido",
+        f"PCA: {pca['n_componentes']} componentes, {acumulada:.1f} % de la varianza",
+    ]
+
+
+def seccion_faltantes(horario: pl.DataFrame, calidad: dict, pca: dict) -> None:
+    izquierda, derecha = st.columns([2, 1], gap="large")
+    with izquierda:
+        st.subheader(
+            "Minutos sin medición por mes :red-badge[:material/report: Calidad]"
+        )
+        largos = [h["minutos"] for h in calidad["huecos"] if h["minutos"] > 24 * 60]
+        st.caption(
+            f"{len(largos)} huecos de más de un día suman el "
+            f"{100 * sum(largos) / max(calidad['faltantes'], 1):.0f} % de los minutos faltantes"
+        )
+        st.plotly_chart(
+            graficas.faltantes_mes(metricas.faltantes_por_mes(horario)),
+            config=CONFIG_GRAFICA,
+        )
+        with st.expander(f"Ver los {len(calidad['huecos'])} huecos sin rellenar"):
+            st.dataframe(
+                metricas.tabla_huecos(calidad["huecos"]),
+                hide_index=True,
+                column_config={
+                    "Inicio": st.column_config.DatetimeColumn(
+                        format="YYYY-MM-DD HH:mm"
+                    ),
+                    "Fin": st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm"),
+                    "Duración (h)": st.column_config.NumberColumn(format="%.1f"),
+                },
+            )
+    with derecha:
+        st.subheader("Decisiones de preparación")
+        st.caption("En el orden en que se aplicaron")
+        for n, (color, texto) in enumerate(
+            zip(COLOR_PASO, pasos_preparacion(calidad, pca)), start=1
+        ):
+            st.markdown(f":{color}-badge[{n}] {texto}")
+
+
+def seccion_pearson(horario: pl.DataFrame, pearson: dict) -> None:
+    st.subheader("Correlación de Pearson :green-badge[:material/hub: Relaciones]")
+    st.caption(
+        "Minutos de entrenamiento (2006–2009) sin faltantes · "
+        "umbral de redundancia |r| > 0.8 · el par elegido aparece enmarcado"
+    )
+    variables = pearson["variables"]
+    izquierda, derecha = st.columns(2, gap="large")
+    with derecha:
+        cx, cy = st.columns(2)
+        x = cx.selectbox(
+            "Variable X",
+            variables,
+            index=variables.index("Global_active_power"),
+            format_func=ETIQUETAS.get,
+        )
+        opciones_y = [v for v in variables if v != x]
+        y = cy.selectbox(
+            "Variable Y",
+            opciones_y,
+            index=opciones_y.index("Voltage") if "Voltage" in opciones_y else 0,
+            format_func=ETIQUETAS.get,
+        )
+        r = pearson["r"][variables.index(y)][variables.index(x)]
+        columnas = [graficas.VARIABLES_PEARSON[v][1] for v in (x, y)]
+        r_horas = horario.select(pl.corr(*columnas)).item()
+        st.plotly_chart(graficas.dispersion(horario, x, y), config=CONFIG_GRAFICA)
+        st.caption(
+            f"Cada punto es una hora (promedio; suma en los submedidores) · "
+            f"r por minuto = {r:.2f} · r por hora = {r_horas:.2f} · "
+            "la correlación no implica causalidad"
+        )
+    with izquierda:
+        st.plotly_chart(graficas.matriz_pearson(pearson, x, y), config=CONFIG_GRAFICA)
+
+
+def seccion_pca(pca: dict) -> None:
+    st.subheader(
+        "Componentes principales (PCA) :yellow-badge[:material/compress: Reducción]"
+    )
+    st.info(
+        "La varianza explicada resume cuánta variación de las entradas conserva cada "
+        "componente; no mide capacidad predictiva. El PCA solo captura relaciones "
+        "lineales y es sensible a valores atípicos.",
+        icon=":material/info:",
+    )
+    izquierda, derecha = st.columns(2, gap="large")
+    izquierda.image(str(FIG_SCREE))
+    derecha.image(str(FIG_LOADINGS))
+    st.image(str(FIG_PROYECCION))
+    with st.expander("Ver loadings en tabla"):
+        tabla = metricas.tabla_loadings(pca, ETIQUETAS)
+        st.dataframe(
+            tabla,
+            hide_index=True,
+            column_config={
+                c: st.column_config.NumberColumn(format="%.3f")
+                for c in tabla.columns[1:]
+            },
+        )
+
+
 horario = cargar_horario()
 seleccion = filtros.barra_lateral(horario)
 filtrado = filtros.aplicar(horario, seleccion)
@@ -211,4 +391,11 @@ with consumo:
         seccion_detalle(filtrado, seleccion.agregacion)
 
 with preparacion:
-    st.caption("Calidad de los datos, correlación de Pearson y PCA.")
+    st.caption("Dataset completo, sin filtros · calidad, correlación de Pearson y PCA")
+    calidad = cargar_json(ARCHIVO_CALIDAD)
+    pearson = cargar_json(ARCHIVO_PEARSON)
+    pca = cargar_json(PARAMETROS_PCA)
+    seccion_calidad(calidad, pearson, pca)
+    seccion_faltantes(horario, calidad, pca)
+    seccion_pearson(horario, pearson)
+    seccion_pca(pca)

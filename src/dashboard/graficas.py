@@ -24,6 +24,30 @@ USOS = {
 }
 
 
+MESES = [
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
+]
+
+
+def fechas_es(fechas: pl.Series, formato: str) -> list[str | None]:
+    """Fechas como texto con el mes abreviado en español (`%b` en `formato`)."""
+    return [
+        None if f is None else f.strftime(formato.replace("%b", MESES[f.month - 1]))
+        for f in fechas
+    ]
+
+
 def _base(fig: go.Figure, alto: int) -> go.Figure:
     """Márgenes, alto y estilo de tooltip comunes."""
     return fig.update_layout(
@@ -101,8 +125,8 @@ def tendencia(df: pl.DataFrame, agregacion: str) -> go.Figure:
             mode="lines",
             line={"color": MOCHA["blue"], "width": 1 if agregacion == "Hora" else 2},
             connectgaps=False,
-            hovertemplate=f"%{{x|{formato_x.get(agregacion, '%b %Y')}}}<br>"
-            f"<b>%{{y:.1f}}</b> {unidad}<extra></extra>",
+            customdata=fechas_es(serie["datetime"], formato_x.get(agregacion, "%b %Y")),
+            hovertemplate=f"%{{customdata}}<br><b>%{{y:.1f}}</b> {unidad}<extra></extra>",
         )
     )
     _bandas_estacion(fig, serie["datetime"].min(), serie["datetime"].max())
@@ -196,3 +220,113 @@ def histograma_diario(diario: pl.DataFrame) -> go.Figure:
     fig.update_xaxes(title_text="kWh por día")
     fig.update_yaxes(title_text="Días")
     return _base(fig, 320).update_layout(bargap=0.04)
+
+
+# Variables de Pearson: etiqueta corta, columna del resumen por hora y unidad en esa columna
+VARIABLES_PEARSON = {
+    "Global_active_power": ("Pot. activa", "potencia_media_kw", "kW"),
+    "Global_reactive_power": ("Pot. reactiva", "reactiva_media_kw", "kW"),
+    "Voltage": ("Voltaje", "voltaje_medio_v", "V"),
+    "Global_intensity": ("Intensidad", "intensidad_media_a", "A"),
+    "Sub_metering_1": ("Cocina", "cocina_kwh", "kWh"),
+    "Sub_metering_2": ("Lavandería", "lavanderia_kwh", "kWh"),
+    "Sub_metering_3": ("Calent./AC", "calentador_ac_kwh", "kWh"),
+    "no_submedido_wh": ("No submed.", "no_submedido_kwh", "kWh"),
+}
+ESCALA_DIVERGENTE = [[0, MOCHA["blue"]], [0.5, MOCHA["surface0"]], [1, MOCHA["red"]]]
+
+
+def faltantes_mes(serie: pl.DataFrame) -> go.Figure:
+    """Minutos sin medición por mes (Red), con el mes máximo anotado."""
+    fig = go.Figure(
+        go.Bar(
+            x=serie["mes"],
+            y=serie["minutos_faltantes"],
+            marker={"color": MOCHA["red"], "cornerradius": 3},
+            customdata=fechas_es(serie["mes"], "%b %Y"),
+            hovertemplate="%{customdata}<br><b>%{y:,} min</b><extra></extra>",
+        )
+    )
+    if serie["minutos_faltantes"].max():
+        pico = serie.sort("minutos_faltantes").tail(1).row(0, named=True)
+        fig.add_annotation(
+            x=pico["mes"],
+            y=pico["minutos_faltantes"],
+            text=f"{fechas_es(pl.Series([pico['mes']]), '%b %Y')[0]} · "
+            f"{pico['minutos_faltantes']:,} min",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font={"color": MOCHA["subtext0"], "size": 12},
+        )
+    fig.update_yaxes(title_text="Minutos sin medición", tickformat=",")
+    fig.update_xaxes(title_text=None)
+    return _base(fig, 300).update_layout(bargap=0.2)
+
+
+def matriz_pearson(pearson: dict, x: str, y: str) -> go.Figure:
+    """Matriz de Pearson con la diagonal vacía y el par elegido enmarcado (Lavender)."""
+    variables = pearson["variables"]
+    etiquetas = [VARIABLES_PEARSON[v][0] for v in variables]
+    n = len(variables)
+    valores = [
+        [None if i == j else r for j, r in enumerate(fila)]
+        for i, fila in enumerate(pearson["r"])
+    ]
+    texto = [
+        ["" if r is None else f"{r:.3f}" if abs(r) > 0.8 else f"{r:.2f}" for r in fila]
+        for fila in valores
+    ]
+    fig = go.Figure(
+        go.Heatmap(
+            z=valores,
+            x=etiquetas,
+            y=etiquetas,
+            text=texto,
+            texttemplate="%{text}",
+            textfont={"size": 10},
+            colorscale=ESCALA_DIVERGENTE,
+            zmin=-1,
+            zmax=1,
+            xgap=2,
+            ygap=2,
+            colorbar={"thickness": 10, "tickvals": [-1, -0.5, 0, 0.5, 1]},
+            hovertemplate="%{y} · %{x}<br><b>r = %{z:.3f}</b><extra></extra>",
+            hoverongaps=False,
+        )
+    )
+    i, j = variables.index(y), variables.index(x)
+    for fila, columna in {(i, j), (j, i)}:
+        fig.add_shape(
+            type="rect",
+            x0=columna - 0.5,
+            x1=columna + 0.5,
+            y0=fila - 0.5,
+            y1=fila + 0.5,
+            line={"color": MOCHA["lavender"], "width": 2},
+        )
+    fig.update_xaxes(tickangle=-40, showgrid=False)
+    fig.update_yaxes(autorange="reversed", showgrid=False)
+    return _base(fig, 420).update_layout(
+        plot_bgcolor=MOCHA["mantle"], xaxis_range=[-0.5, n - 0.5]
+    )
+
+
+def dispersion(df: pl.DataFrame, x: str, y: str) -> go.Figure:
+    """Promedios (o sumas, en submedidores) por hora de dos variables (Sapphire)."""
+    nombre_x, columna_x, unidad_x = VARIABLES_PEARSON[x]
+    nombre_y, columna_y, unidad_y = VARIABLES_PEARSON[y]
+    puntos = df.select(columna_x, columna_y).drop_nulls()
+    fig = go.Figure(
+        go.Scattergl(
+            x=puntos[columna_x],
+            y=puntos[columna_y],
+            mode="markers",
+            marker={"color": MOCHA["sapphire"], "size": 3, "opacity": 0.25},
+            hovertemplate=f"{nombre_x}: %{{x:.2f}} {unidad_x}<br>"
+            f"{nombre_y}: %{{y:.2f}} {unidad_y}<extra></extra>",
+        )
+    )
+    fig.update_xaxes(title_text=f"{nombre_x} ({unidad_x})")
+    fig.update_yaxes(title_text=f"{nombre_y} ({unidad_y})")
+    return _base(fig, 340)
