@@ -78,8 +78,8 @@ Lavandería,"Climatización, Consumo alto",uso,0.0454,0.6117,2.891,0.0743,0.2116
 "Consumo alto, Jueves",Climatización,uso,0.0237,0.8508,1.9886,0.0279,0.4279,810
 "Cocina, Lavandería, Consumo alto",Climatización,uso,0.0175,0.8492,1.9848,0.0206,0.4279,597
 "Climatización, Mañana, Martes",Consumo alto,uso,0.0126,0.496,1.9836,0.0253,0.25,429
-Climatización,Consumo alto,uso,0.2116,0.4946,1.9781,0.4279,0.25,7226
 Consumo alto,Climatización,uso,0.2116,0.8463,1.9781,0.25,0.4279,7226
+Climatización,Consumo alto,uso,0.2116,0.4946,1.9781,0.4279,0.25,7226
 "Climatización, Tarde",Consumo alto,uso,0.0404,0.492,1.9677,0.0821,0.25,1380
 "Consumo alto, Lunes",Climatización,uso,0.0246,0.8382,1.959,0.0293,0.4279,839
 "Consumo alto, Martes",Climatización,uso,0.0296,0.8347,1.9509,0.0354,0.4279,1010

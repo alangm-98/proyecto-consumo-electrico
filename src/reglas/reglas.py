@@ -47,7 +47,7 @@ def filtrar(reglas: pd.DataFrame) -> pd.DataFrame:
 
 
 def tabla_reglas(reglas: pd.DataFrame, transacciones: int) -> pl.DataFrame:
-    """Tabla legible, ordenada por lift (y por soporte en empates)."""
+    """Tabla legible, ordenada por lift, soporte y confianza."""
     return (
         pl.DataFrame(
             {
@@ -69,7 +69,11 @@ def tabla_reglas(reglas: pd.DataFrame, transacciones: int) -> pl.DataFrame:
             pl.col("soporte", "confianza", "lift").round(4),
             pl.col("soporte_antecedente", "soporte_consecuente").round(4),
         )
-        .sort(["lift", "soporte"], descending=True)
+        # Desempates por confianza y por texto: el orden del CSV no cambia entre ejecuciones
+        .sort(
+            ["lift", "soporte", "confianza", "antecedente", "consecuente"],
+            descending=[True, True, True, False, False],
+        )
     )
 
 
