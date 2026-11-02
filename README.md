@@ -1,6 +1,6 @@
-# Consumo eléctrico doméstico · Preparación de datos y dashboard
+# Consumo eléctrico doméstico · Preparación de datos, dashboard y reglas de asociación
 
-Práctica 5 · Almacenes y Minería de Datos · Facultad de Ciencias, UNAM
+Prácticas 5 y 6 · Almacenes y Minería de Datos · Facultad de Ciencias, UNAM
 
 **Equipo:**
 
@@ -12,7 +12,9 @@ Práctica 5 · Almacenes y Minería de Datos · Facultad de Ciencias, UNAM
 
 Preparar una serie de tiempo de consumo eléctrico de un hogar para modelos de regresión y
 agrupamiento: preprocesamiento, normalización numérica, reducción de dimensionalidad
-(correlación de Pearson y PCA) y un dashboard interactivo en Streamlit.
+(correlación de Pearson y PCA) y un dashboard interactivo en Streamlit (Práctica 5).
+Buscar con reglas de asociación qué habitaciones, horarios y niveles de consumo ocurren juntos
+(Práctica 6).
 
 ## Dataset
 
@@ -42,11 +44,12 @@ desde la página de UCI y `household_power_consumption.txt` se coloca, sin modif
 │   ├── data-raw/          # dato original (no versionado)
 │   └── data-processed/    # dato preparado, parámetros y datos del dashboard
 ├── reports/
-│   └── figures/           # mapa de calor de Pearson y figuras del PCA
+│   └── figures/           # Pearson, PCA y reglas de asociación
 ├── src/
 │   ├── cleaning/          # carga, inspección y preprocesamiento
 │   ├── features/          # normalización, Pearson, PCA y dataset final
-│   └── dashboard/         # datos, métricas, gráficas, filtros y tema del dashboard
+│   ├── dashboard/         # datos, métricas, gráficas, filtros y tema del dashboard
+│   └── reglas/            # transacciones, Apriori/FP-Growth y reglas (Práctica 6)
 ├── visualization/
 │   └── app.py             # dashboard en Streamlit
 ├── README.md
@@ -156,8 +159,9 @@ Dos pestañas:
 
 ## Práctica 6 · Reglas de asociación
 
-Parte del dataset limpio de la Práctica 5 (`consumo_limpio.parquet`, generado por
-`src.cleaning.preprocesamiento`).
+Busca qué habitaciones, momentos del día y niveles de consumo ocurren juntos en una misma
+hora (Apriori y FP-Growth con `mlxtend`). Parte del dataset limpio de la Práctica 5
+(`consumo_limpio.parquet`, generado por `src.cleaning.preprocesamiento`).
 
 ```bash
 python -m src.reglas.transacciones   # transacciones e ítems -> input_reglas_asociacion (.parquet y .csv) y reglas_umbrales.png
@@ -165,3 +169,52 @@ python -m src.reglas.algoritmos      # Apriori vs FP-Growth -> comparacion_aprio
 python -m src.reglas.reglas          # reglas con lift > 1 -> data/data-processed/reglas_asociacion.csv
 python -m src.reglas.graficas        # gráficas de las reglas -> reports/figures/reglas_*.png
 ```
+
+**Transacciones e ítems** (`src/reglas/transacciones.py`)
+
+- Una transacción es una hora con los 60 minutos medidos: 34,149 horas (se excluyen 421 sin
+  medición y 19 parciales).
+- Habitaciones activas: energía del submedidor en la hora por encima de un umbral. Con `> 0`,
+  Lavandería (incluye el refrigerador) y Climatización (el calentador mantiene temperatura)
+  estarían activas en 70 % y 77 % de las horas; los umbrales se colocan en el valle entre ese
+  consumo base y el uso real (`reglas_umbrales.png`):
+
+  | Ítem          | Submedidor     | Umbral   | Horas activas |
+  | ------------- | -------------- | -------- | ------------- |
+  | Cocina        | Sub_metering_1 | > 50 Wh  | 12.4 %        |
+  | Lavandería    | Sub_metering_2 | > 100 Wh | 7.4 %         |
+  | Climatización | Sub_metering_3 | > 200 Wh | 42.8 %        |
+
+- Tiempo del día: Madrugada 0–5 h, Mañana 6–11 h, Mediodía 12–13 h, Tarde 14–18 h, Noche
+  19–23 h (el pico de consumo de 19 a 21 h queda completo en Noche). Día de la semana: Lunes a
+  Domingo.
+- `Consumo alto`: potencia activa media de la hora ≥ 1.579 kW (percentil 75).
+- `input_reglas_asociacion`: métricas globales y submedidores por hora, `Habitaciones_Activas`
+  (la canasta), `Dia`, `Tiempo` y `Consumo_Alto`; en Parquet y en CSV (lista separada por `|`).
+
+**Apriori y FP-Growth** (`src/reglas/algoritmos.py`)
+
+- Con `min_support` de 0.001 a 0.3, ambos encuentran los mismos itemsets con el mismo soporte
+  (de 530 a 1).
+- Apriori es más rápido en todos los valores: hay solo 16 ítems y cada transacción tiene de 2 a
+  6, así que construir el FP-tree cuesta más de lo que ahorra.
+
+**Reglas** (`src/reglas/reglas.py`)
+
+- `min_support` = 0.01 (al menos 342 horas) y `min_confidence` = 0.4; se conservan las reglas con
+  lift > 1 cuyo consecuente es una habitación o `Consumo alto` (predecir un día o una franja no
+  aporta). Resultado: 145 reglas, ordenadas por lift.
+- Tipo `uso` (115): el antecedente incluye habitaciones o consumo. Tipo `rutina` (30): el
+  antecedente solo tiene franja y día.
+
+**Hallazgos**
+
+- Cocina y calentador encendidos en la misma hora: consumo alto el 90 % de las veces (lift 3.6);
+  con las tres habitaciones, el 97.6 %.
+- La noche tiene consumo alto todos los días (lift 1.55–2.04); el sábado por la noche, la mitad
+  de las horas.
+- En fin de semana el mediodía y la tarde también son de consumo alto (lift 1.59–1.74); entre
+  semana quedan por debajo del promedio.
+- Entre semana el calentador se enciende en la mañana: {Mañana, Miércoles} ⇒ {Climatización},
+  confianza 0.76.
+- Las reglas indican co-ocurrencia, no causalidad.
