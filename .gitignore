@@ -10,11 +10,12 @@ __pycache__/
 data/data-raw/*
 !data/data-raw/.gitkeep
 
-# Datos procesados (se regeneran con el pipeline); se versionan el dataset final y el
-# resumen por hora que usa el dashboard
+# Datos procesados (se regeneran con el pipeline); se versionan el dataset final, el
+# resumen por hora que usa el dashboard y la entrada de las reglas de asociación
 data/data-processed/*.parquet
 !data/data-processed/dataset_final.parquet
 !data/data-processed/consumo_horario.parquet
+!data/data-processed/input_reglas_asociacion.parquet
 
 # Sistema
 .DS_Store

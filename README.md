@@ -160,5 +160,5 @@ Parte del dataset limpio de la Práctica 5 (`consumo_limpio.parquet`, generado p
 `src.cleaning.preprocesamiento`).
 
 ```bash
-python -m src.reglas.transacciones   # transacciones horarias e ítems -> reports/figures/reglas_umbrales.png
+python -m src.reglas.transacciones   # transacciones e ítems -> input_reglas_asociacion (.parquet y .csv) y reglas_umbrales.png
 ```

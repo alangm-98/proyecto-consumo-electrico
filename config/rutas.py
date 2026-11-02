@@ -26,4 +26,6 @@ FIG_PROYECCION = FIGURAS / "pca_proyeccion_2d.png"
 PARAMETROS_PCA = DATA_PROCESSED / "parametros_pca.json"
 
 # Práctica 6 · reglas de asociación
+ARCHIVO_INPUT_REGLAS = DATA_PROCESSED / "input_reglas_asociacion.parquet"
+ARCHIVO_INPUT_REGLAS_CSV = DATA_PROCESSED / "input_reglas_asociacion.csv"
 FIG_UMBRALES = FIGURAS / "reglas_umbrales.png"

@@ -10,7 +10,8 @@
 - Ítem `Consumo alto`: potencia media de la hora mayor o igual al percentil
   `PERCENTIL_CONSUMO_ALTO`.
 
-Imprime el resumen de los ítems y guarda la figura de los umbrales en PNG.
+Guarda el dataset de entrada (`input_reglas_asociacion`) en Parquet y en CSV, la
+figura de los umbrales en PNG, e imprime el resumen de los ítems.
 """
 
 import matplotlib
@@ -21,7 +22,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-from config.rutas import ARCHIVO_LIMPIO, FIG_UMBRALES
+from config.rutas import (
+    ARCHIVO_INPUT_REGLAS,
+    ARCHIVO_INPUT_REGLAS_CSV,
+    ARCHIVO_LIMPIO,
+    FIG_UMBRALES,
+)
 from src.dashboard.tema import MOCHA
 from src.features.correlacion import FONDO, LINEA, TINTA, TINTA_SECUNDARIA
 
@@ -68,7 +74,8 @@ def resumen_horario(df: pl.DataFrame) -> pl.DataFrame:
         df.group_by(pl.col("datetime").dt.truncate("1h"), maintain_order=True)
         .agg(
             *[pl.col(c).mean() for c in GLOBALES],
-            *[pl.col(c).sum() for c in SUBMEDIDORES],
+            # Float64 para que la suma de 60 minutos no acumule error de Float32
+            *[pl.col(c).cast(pl.Float64).sum() for c in SUBMEDIDORES],
             pl.col("Global_active_power").is_not_null().sum().alias("minutos_medidos"),
         )
         .sort("datetime")
@@ -103,6 +110,27 @@ def agregar_items(horas: pl.DataFrame) -> pl.DataFrame:
         .replace_strict(dict(enumerate(DIAS, 1)), return_dtype=pl.Enum(DIAS))
         .alias("Dia"),
         (pl.col("Global_active_power") >= limite).alias("Consumo_Alto"),
+    )
+
+
+def input_reglas(items: pl.DataFrame) -> pl.DataFrame:
+    """Dataset de entrada: métricas por hora, habitaciones activas e ítems temporales."""
+    return items.select(
+        "datetime",
+        *GLOBALES,
+        *SUBMEDIDORES,
+        "Habitaciones_Activas",
+        "Dia",
+        "Tiempo",
+        "Consumo_Alto",
+    )
+
+
+def a_csv(entrada: pl.DataFrame) -> pl.DataFrame:
+    """Versión para CSV: la lista de habitaciones como texto separado por «|»."""
+    return entrada.with_columns(
+        pl.col("datetime").dt.strftime("%Y-%m-%d %H:%M"),
+        pl.col("Habitaciones_Activas").list.join("|"),
     )
 
 
@@ -219,8 +247,17 @@ def main() -> None:
     for i in [0, 8, 20, 4000]:
         print(f"  {items['datetime'][i]:%Y-%m-%d %H:%M}  {lista[i]}")
 
+    entrada = input_reglas(items)
+    ARCHIVO_INPUT_REGLAS.parent.mkdir(parents=True, exist_ok=True)
+    entrada.write_parquet(ARCHIVO_INPUT_REGLAS, compression="zstd")
+    a_csv(entrada).write_csv(ARCHIVO_INPUT_REGLAS_CSV, float_precision=4)
+    print(f"\nDataset de entrada: {entrada.height:,} filas, {entrada.width} columnas")
+    for columna, tipo in entrada.schema.items():
+        print(f"  {columna:<22} {tipo}")
+
     graficar_umbrales(items)
-    print(f"\nGuardado: {FIG_UMBRALES}")
+    for ruta in [ARCHIVO_INPUT_REGLAS, ARCHIVO_INPUT_REGLAS_CSV, FIG_UMBRALES]:
+        print(f"Guardado: {ruta} ({ruta.stat().st_size / 1e6:.2f} MB)")
 
 
 if __name__ == "__main__":
