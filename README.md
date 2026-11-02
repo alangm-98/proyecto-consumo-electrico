@@ -161,4 +161,5 @@ Parte del dataset limpio de la Práctica 5 (`consumo_limpio.parquet`, generado p
 
 ```bash
 python -m src.reglas.transacciones   # transacciones e ítems -> input_reglas_asociacion (.parquet y .csv) y reglas_umbrales.png
+python -m src.reglas.algoritmos      # Apriori vs FP-Growth -> comparacion_apriori_fpgrowth.csv y reglas_itemsets_soporte.png
 ```

@@ -1,0 +1,10 @@
+min_support,transacciones_minimas,itemsets_apriori,itemsets_fpgrowth,mismos_itemsets,tamano_maximo,ms_apriori,ms_fpgrowth
+0.001,35,530,530,true,6,13.4,42.3
+0.002,69,433,433,true,6,11.1,41.6
+0.005,171,291,291,true,5,8.0,41.2
+0.01,342,188,188,true,4,6.2,40.8
+0.02,683,105,105,true,4,4.3,40.6
+0.05,1708,37,37,true,3,2.7,39.7
+0.1,3415,16,16,true,2,1.9,38.9
+0.2,6830,7,7,true,2,0.9,34.3
+0.3,10245,1,1,true,1,0.6,29.0
