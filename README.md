@@ -153,3 +153,12 @@ Dos pestañas:
 - **Preparación de datos**: calidad del dato (faltantes por mes y huecos sin rellenar),
   decisiones de preparación, correlación de Pearson con dispersión de cualquier par de
   variables y figuras del PCA con la tabla de loadings.
+
+## Práctica 6 · Reglas de asociación
+
+Parte del dataset limpio de la Práctica 5 (`consumo_limpio.parquet`, generado por
+`src.cleaning.preprocesamiento`).
+
+```bash
+python -m src.reglas.transacciones   # transacciones horarias e ítems -> reports/figures/reglas_umbrales.png
+```

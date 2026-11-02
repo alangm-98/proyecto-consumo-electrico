@@ -24,3 +24,6 @@ FIG_LOADINGS = FIGURAS / "pca_loadings.png"
 FIG_PROYECCION = FIGURAS / "pca_proyeccion_2d.png"
 
 PARAMETROS_PCA = DATA_PROCESSED / "parametros_pca.json"
+
+# Práctica 6 · reglas de asociación
+FIG_UMBRALES = FIGURAS / "reglas_umbrales.png"
